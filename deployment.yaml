@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-service-n_pichuzhkin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: integration-service-n_pichuzhkin
+  template:
+    metadata:
+      labels:
+        app: integration-service-n_pichuzhkin
+    spec:
+      containers:
+        - name: integration-service-n_pichuzhkin
+          image: 192.168.1.157:8091/integration-service-n_pichuzhkin
+          ports:
+            - containerPort: 8055
+      imagePullSecrets:
+        - name: regcred
+
