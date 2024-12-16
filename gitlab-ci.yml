@@ -39,10 +39,10 @@ release:
     - VERSION=$(xmllint --xpath '/*[local-name()="project"]/*[local-name()="version"]/text()' pom.xml)
     - if [[ "$CI_COMMIT_REF_NAME" == "feature/"* ]]; then VERSION="${VERSION}-${CI_COMMIT_SHA:0:12}"; fi
     - echo "new verion is $VERSION"
-    - docker build -t integration-service-n_pichuzhkin:$VERSION .
+    - docker build -t integration-service-n-pichuzhkin:$VERSION .
     - docker login -u admin --password admin 192.168.1.157:8091
-    - docker tag integration-service-n_pichuzhkin:$VERSION 192.168.1.157:8091/integration-service-n_pichuzhkin:$VERSION
-    - docker push 192.168.1.157:8091/integration-service-n_pichuzhkin:$VERSION
+    - docker tag integration-service-n-pichuzhkin:$VERSION 192.168.1.157:8091/integration-service-n-pichuzhkin:$VERSION
+    - docker push 192.168.1.157:8091/integration-service-n-pichuzhkin:$VERSION
   cache:
     key: ${CI_PROJECT_ID}
     paths:
@@ -66,7 +66,7 @@ deploy_to_kubernetes:
     - VERSION=$(xmllint --xpath '/*[local-name()="project"]/*[local-name()="version"]/text()' pom.xml)
     - if [[ "$CI_COMMIT_REF_NAME" == "feature/"* ]]; then VERSION="${VERSION}-${CI_COMMIT_SHA:0:12}"; fi
     - kubectl config use-context minikube
-    - kubectl set image deployment/integration-service-n_pichuzhkin integration-service-n_pichuzhkin=192.168.1.157:8091/integration-service-n_pichuzhkin:$VERSION --namespace=default
+    - kubectl set image deployment/integration-service-n-pichuzhkin integration-service-n-pichuzhkin=192.168.1.157:8091/integration-service-n-pichuzhkin:$VERSION --namespace=default
     - sleep 10
-    - kubectl delete pod -l app=integration-service-n_pichuzhkin --namespace default || true
+    - kubectl delete pod -l app=integration-service-n-pichuzhkin --namespace default || true
   when: manual
