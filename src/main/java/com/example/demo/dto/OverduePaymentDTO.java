@@ -1,14 +1,12 @@
 package com.example.demo.dto;
 
-import customer.User;
 import javacode.prac.api.client.feign.adapter.customer.dto.CustomerDto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import payment.OrderEntityDto;
-import payment.Payment;
 
-import java.util.List;
+import java.util.Objects;
 
 @Data
 @NoArgsConstructor
@@ -16,4 +14,17 @@ import java.util.List;
 public class OverduePaymentDTO {
     private CustomerDto user;
     private OrderEntityDto order;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OverduePaymentDTO that = (OverduePaymentDTO) o;
+        return Objects.equals(user, that.user) && Objects.equals(order, that.order);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(user, order);
+    }
 }
