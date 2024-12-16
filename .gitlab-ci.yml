@@ -1,49 +1,72 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+image: maven:3.8.1-openjdk-17-slim
 
-# This is a sample GitLab CI/CD configuration file that should run without any modifications.
-# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
-# it uses echo commands to simulate the pipeline execution.
-#
-# A pipeline is composed of independent jobs that run scripts, grouped into stages.
-# Stages run in sequential order, but jobs within stages run in parallel.
-#
-# For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
+cache:
+  key: ${CI_PROJECT_ID}
+  paths:
+    - .m2/repository/
 
-stages:          # List of stages for jobs, and their order of execution
+stages:
   - build
   - test
+  - release
   - deploy
 
-include:
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
+variables:
+  MAVEN_OPTS: "--add-opens java.base/java.lang=ALL-UNNAMED"
 
-build-job:       # This job runs in the build stage, which runs first.
+build:
   stage: build
-  script:
-    - echo "Compiling the code..."
-    - echo "Compile complete."
+  script: "mvn -s settings.xml -Dmaven.repo.local=.m2/repository  compile"
+  cache:
+    key: ${CI_PROJECT_ID}
+    paths:
+      - .m2/repository/
 
-unit-test-job:   # This job runs in the test stage.
-  stage: test    # It only starts when the job in the build stage completes successfully.
-  script:
-    - echo "Running unit tests... This will take about 60 seconds."
-    - sleep 60
-    - echo "Code coverage is 90%"
+test:
+  stage: test
+  script: "mvn -s settings.xml -Dmaven.repo.local=.m2/repository test"
+  cache:
+    key: ${CI_PROJECT_ID}
+    paths:
+      - .m2/repository/
 
-lint-test-job:   # This job also runs in the test stage.
-  stage: test    # It can run at the same time as unit-test-job (in parallel).
+release:
+  stage: release
+  image: docker:latest
+  before_script:
+    - apk update && apk add --no-cache libxml2-utils
   script:
-    - echo "Linting code... This will take about 10 seconds."
+    - VERSION=$(xmllint --xpath '/*[local-name()="project"]/*[local-name()="version"]/text()' pom.xml)
+    - if [[ "$CI_COMMIT_REF_NAME" == "feature/"* ]]; then VERSION="${VERSION}-${CI_COMMIT_SHA:0:12}"; fi
+    - echo "new verion is $VERSION"
+    - docker build -t integration-service-n-pichuzhkin:$VERSION .
+    - docker login -u admin --password admin 192.168.1.157:8091
+    - docker tag integration-service-n-pichuzhkin:$VERSION 192.168.1.157:8091/integration-service-n-pichuzhkin:$VERSION
+    - docker push 192.168.1.157:8091/integration-service-n-pichuzhkin:$VERSION
+  cache:
+    key: ${CI_PROJECT_ID}
+    paths:
+      - .m2/repository/
+
+deploy_to_kubernetes:
+  stage: deploy
+  image:
+    name: roffe/kubectl
+    entrypoint: [""]
+  before_script:
+    - apk update && apk add --no-cache libxml2-utils
+    - mkdir -p $HOME/.kube
+    - mkdir -p /var/.minikube
+    - echo -n "YXBpVmVyc2lvbjogdjEKY2x1c3RlcnM6CiAgLSBjbHVzdGVyOgogICAgICBjZXJ0aWZpY2F0ZS1hdXRob3JpdHk6ICIvdmFyLy5taW5pa3ViZS9jYS5jcnQiCiAgICAgIGV4dGVuc2lvbnM6CiAgICAgICAgLSBleHRlbnNpb246CiAgICAgICAgICAgIGxhc3QtdXBkYXRlOiAiU3VuLCAyMiBTZXAgMjAyNCAwMDoxNTo0MSBNU0siCiAgICAgICAgICAgIHByb3ZpZGVyOiAibWluaWt1YmUuc2lncy5rOHMuaW8iCiAgICAgICAgICAgIHZlcnNpb246ICJ2MS4zNC4wIgogICAgICAgICAgbmFtZTogImNsdXN0ZXJfaW5mbyIKICAgICAgc2VydmVyOiAiaHR0cDovLzE5Mi4xNjguMS4xNTc6ODA4MCIKICAgIG5hbWU6ICJtaW5pa3ViZSIKY29udGV4dHM6CiAgLSBjb250ZXh0OgogICAgICBjbHVzdGVyOiAibWluaWt1YmUiCiAgICAgIGV4dGVuc2lvbnM6CiAgICAgICAgLSBleHRlbnNpb246CiAgICAgICAgICAgIGxhc3QtdXBkYXRlOiAiU3VuLCAyMiBTZXAgMjAyNCAwMDoxNTo0MSBNU0siCiAgICAgICAgICAgIHByb3ZpZGVyOiAibWluaWt1YmUuc2lncy5rOHMuaW8iCiAgICAgICAgICAgIHZlcnNpb246ICJ2MS4zNC4wIgogICAgICAgICAgbmFtZTogImNvbnRleHRfaW5mbyIKICAgICAgbmFtZXNwYWNlOiAiZGVmYXVsdCIKICAgICAgdXNlcjogIm1pbmlrdWJlIgogICAgbmFtZTogIm1pbmlrdWJlIgpjdXJyZW50LWNvbnRleHQ6ICJtaW5pa3ViZSIKa2luZDogIkNvbmZpZyIKcHJlZmVyZW5jZXM6IHt9CnVzZXJzOgogIC0gbmFtZTogIm1pbmlrdWJlIgogICAgdXNlcjoKICAgICAgY2xpZW50LWNlcnRpZmljYXRlOiAiL3Zhci8ubWluaWt1YmUvY2xpZW50LmNydCIKICAgICAgY2xpZW50LWtleTogIi92YXIvLm1pbmlrdWJlL2NsaWVudC5rZXkiCg==" | base64 -d > /root/.kube/config
+    - cat /root/.kube/config
+    - echo "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCakNDQWU2Z0F3SUJBZ0lCQVRBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwdGFXNXAKYTNWaVpVTkJNQjRYRFRJME1Ea3lNREUwTlRBME1sb1hEVE0wTURreE9URTBOVEEwTWxvd0ZURVRNQkVHQTFVRQpBeE1LYldsdWFXdDFZbVZEUVRDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTXBmClZmNmcwM3dwOFVYNEdoRFdwOHRhdUsvME9pL3gyL0pNUVJUbmIyZ2V4SzYyVHlCTnhoSnNlY1Q2c2dnMzFhZXEKckxXVnlGNVZ0M0c4NFpIRUFmbmNRa3BZUWNhbVZBMWtkTzRHMitUTmFnMVZrYTBWY3FadkxDNW1CZDlzVEd0Mgo5amtBZ3RoNk9BN2FQT053QzRZM2Jxd2xDNlpDOGNkaTBpV21NdndFUXZsenhERk1YU1U1V0E1SmJ6bFZaNTF4CjFxYWtXV1NpWVFsUld4Y0h3UjVIbnhsSmFMVTJ1SmZsWWo4Sng1NTcySVlhWjRxRENQakZ2UFRWQzVyb3FGTkYKWUM0VzFPVmJkYVQydXNRMXFueGJjU010U25LcDZUd2FuR0VaVDJnWjJZazFwM0dYSjRKbzVBZ2VkSFRXaGNWYwphRXdVZ2dlTWc0M1FZK3E2cEdzQ0F3RUFBYU5oTUY4d0RnWURWUjBQQVFIL0JBUURBZ0trTUIwR0ExVWRKUVFXCk1CUUdDQ3NHQVFVRkJ3TUNCZ2dyQmdFRkJRY0RBVEFQQmdOVkhSTUJBZjhFQlRBREFRSC9NQjBHQTFVZERnUVcKQkJUSUcvZ0cvTDk0dmN2clpxRWptS20rUzNPNG1EQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFpWXk3VTZHdwovdHN5ZldQUkxQKzM3cEVOZDlZMTljdnRhVng1cThVdDFlUElWdW5rVzF4clRwVGo5MmpsOFlwU1Ava0dicFlaClpUbHNwUXBYbnNzNTYrY1M2OWRhUUp5UGMxdy9sOVowbkdSekhteU5EK1BjZmEvZWl1cGJ3amc4QjJmRzNJNHcKRjZ1Q0V6bG10cE9OeVNmK2tWTkZmOE82WUptY1JGY2VneGdCVUQrbHpUTUJOMHR3MkdyYitsQndhemhueGdtYgphOHJ2MGU5YUhZQUhlTlBzcjFnNnFkdWQvUEtrQ3RZczBJMzhnZlIyNC9lQ2VORyswV2F4SW1RTjZNN0VBZTl0CmlYRDhSRmlhS0xlRmNzWTBsTmF6MksvdjhZYXBSTTVrdUxHcDZkZHdxM3JJc3NZZEo2b0pUenEzdk1TWUN1NmYKdmh3VmliVWtZYVpYckE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t" | base64 -d > /var/.minikube/ca.crt
+    - echo "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURJVENDQWdtZ0F3SUJBZ0lCQWpBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwdGFXNXAKYTNWaVpVTkJNQjRYRFRJME1Ea3lNREl4TVRJME9Wb1hEVEkzTURreU1USXhNVEkwT1Zvd01URVhNQlVHQTFVRQpDaE1PYzNsemRHVnRPbTFoYzNSbGNuTXhGakFVQmdOVkJBTVREVzFwYm1scmRXSmxMWFZ6WlhJd2dnRWlNQTBHCkNTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEZ2dadnNYcVpmS3J5Qjl5bE5ERTdHSUMrbkpBR1YKd2VVYUlDbjhNTUdqYTliN3krVkpyNlc4N3FRZmpzQ0MrWG5taVkxa0RmdlNYQXcvS2VManlyN2E2R2xQZjFRQgpNZWFDa1loSk1seGRtWE91ZVlzZUFUa21vaEJRN21OdkdQLzRjTi9uREZQVDcxbkxobURzQXNRSWwvellCRTByCjlTM0gzWWtBVEEzVHZ6REJSMHZkSWx0TThsdlRXWlc5RkhJelkxcFpDSVVNWEdNc2dJbmpzWEYwdHV2V29FeSsKMXhHTVV4NzhhQzJ1QmxnSFE4KzhHakhFckFRU241SUthMFpjWDJoMHhKeUUyK3VYUCt2dU9qSjlJQit6a0c1MgpOc1R6cWtuaUp1Q0tVb3l4THhGMU9KdlJ6TDRaNTNsaXM5aVowelF4dlRnZU52RE9WU0kvNlBOL0FnTUJBQUdqCllEQmVNQTRHQTFVZER3RUIvd1FFQXdJRm9EQWRCZ05WSFNVRUZqQVVCZ2dyQmdFRkJRY0RBUVlJS3dZQkJRVUgKQXdJd0RBWURWUjBUQVFIL0JBSXdBREFmQmdOVkhTTUVHREFXZ0JUSUcvZ0cvTDk0dmN2clpxRWptS20rUzNPNAptREFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBeVVWbkVlSHVTUlB1SFBJSEw1S2MxeFZ6blppOE1DVDJLSUdGCk9NcnRpcUZhYVF1S3A5NW9Fbm1SVHBEV2tLOUpDR21VTkVMQnVXNXhPUTV6SmVhWnl4OTZrb0hSTjVCOTU5Vk4KWFFWWVFKakdtY3RTeVN1ZklzNmpTZEdpUFRkZHVwcFFCcTdLaTZkOGdVdmNXRVlGc2hDeFVMRG1obmw4VEpPegpmNzBIRXdnL2ZqSUl5U0RHK015b3BUYTBsT2FYT0dFeXFuVzQ2azVPS2xSSC8xNVN3S3BMM054N0xCQUQ2N0JrCnFDcTRLUDVLQ0xRakUzcTQxSEJ1VGsrOTJlOWc0OVVrazBLTzRuWmh6eG1wQXVoSmpHVUNyMUowMjBwZ2YxdjYKeXdxNkE1dW9naWVIeDZkTjFFUTBKV1Nndkhoa0NsOGVIbzF3RVZySVpvbkNjSmsyb3c9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t" | base64 -d > /var/.minikube/client.crt
+    - echo "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBNElHYjdGNm1YeXE4Z2ZjcFRReE94aUF2cHlRQmxjSGxHaUFwL0REQm8ydlcrOHZsClNhK2x2TzZrSDQ3QWd2bDU1b21OWkEzNzBsd01QeW5pNDhxKzJ1aHBUMzlVQVRIbWdwR0lTVEpjWFpsenJubUwKSGdFNUpxSVFVTzVqYnhqLytIRGY1d3hUMCs5Wnk0Wmc3QUxFQ0pmODJBUk5LL1V0eDkySkFFd04wNzh3d1VkTAozU0piVFBKYjAxbVZ2UlJ5TTJOYVdRaUZERnhqTElDSjQ3RnhkTGJyMXFCTXZ0Y1JqRk1lL0dndHJnWllCMFBQCnZCb3h4S3dFRXArU0NtdEdYRjlvZE1TY2hOdnJsei9yN2pveWZTQWZzNUJ1ZGpiRTg2cEo0aWJnaWxLTXNTOFIKZFRpYjBjeStHZWQ1WXJQWW1kTTBNYjA0SGpid3psVWlQK2p6ZndJREFRQUJBb0lCQVFDL0dKT0lGdWkyaU1IOApQazNCYjRCOTFGZTdoVUowSHA3TUppU1dyVW1sdU4wOVpzaThkKzR6YTAzNExxSmUyY3VSRi9ScC9oMGphWVpqCkhWd3JXU0FyWlRoK21ucitxV0wwTUx3NDBjMGRQc2pnOGtRZ1BocFBjQk5EVUNjRElkeC90RlJoYm5UTUtTZmQKdlh3eWFBaEU2Rm9uNVVGcThUOE9xTnM4allBWGcwV05XdEFqY1A4bHJjVDlyTlZBVTNzbmRvN3R4TzBNc1MrMQpwOTdDZDhJZEppTVRjRzBUMmJTS2EvWEFJYnBvUFc5YUNTeHFiYnYwUE9USGVqaUxwK1IrMlJrVy9PZ1RiOWR6ClRzdEdxYjdDbmtpbXA0QU8zQk5DUlY5K1dTazBnaWx1VThLNi8wMVJpcVAybUE4Tnlsa1RTd3Jud3lvKzNKam8KbjR0S1YraUJBb0dCQVBxaHlaaEVPUXdyUThxbmFYTEEwWm9tSmFmRGpmL1RQekZvc3VsYWczaFBoRUhVWm56Uwp3UGVCMUptb3gxTzRwUGFSZFl6NFFaR0lrR0Z3cmpqUVUyZTdoQkpRT0lLUGpzMGh2UWcxeHRqOVNIQ0hWSU5FCmloT29HS3l1bkgzQ3dQZHMraTdpd0QzSmw2V0JFeWxaR0FkZStaRmVYNHJ1ck12MUpiUldBcWMzQW9HQkFPVlEKa3gzanVqSEVhSUdnVDF0YVdtODQ5VmYwemY0dlpLZUxxOEhsdEFjNGVKbjFOcDJrZHZ4U09xeWdwNWhPZTlEaQovT1M1OWVURTNEREQ4WkdYVjZPMXJ5Smdna1JBQXowMXlSZGpMZ3dXbVkwQnl3ZzBjaUFqc2c5dmFxR1J6aXRHCkRoeDViQzFZd1lqdTV5aEFIditKTFViUFZocTZaTVZvUVA4M0Y2bjVBb0dBWU55Ri9NTGhDVUx2UURMVEhmWkgKQ3p3UzhYTXlQZHgyWDdJRzh3aDRKdGNVVmh5d1B5MTBSak4yNXF2RDNTZFBHYnU5b20yUGFaOU5yVnJPK2tZSQo5ZDRTZk1Ga0ZaRkZyeUdLM05GcnVCQ3JIbEl1NTB4bDBKTDJka1pGVkpVZjNuL1BjSzlSZkkrY2Urb1diYlJ4CkJPZy9xMTY5cmdQdjVDTXFIemZlYnFFQ2dZQldzUWR0SFZLZXplblVWNDZvc3BmTnhISzhOY2hLZUJCTlp2Z2YKN1g4SjI4ZDhMTC9oQ1BRU24rT2VyMzJzanI4d1VSL2FPSk5GVVVjTkNJYWl5OXhOLzdtZC9XNUI3eEZLYXJNRApMSE9VRGxjdWY2Y0tDd202TE1SOElWcm1pZ0N2UzJTNlR3MGVkNWR5OVI1ZWtSOG02KzA1LzloRmNvSDJQMXVUCklIakp3UUtCZ0NFa0s1czRWQnp0Sys1c0ljTitZS1BTZ2xYdjRrYTQ3cStCVWhqRTJXZ2RaelFxSlBVYis3K2sKamw1NUFzWHp3UmcrQ0FkcHFxRmJQa1hRMjdHbEJ5STlpTkFGLy9GNW9uaEVvU3ZManhkaUxzSCtXSHdyaUt2WgpOdWlRT2ptaFhpalhLQ0dUMURlUm5ZU25IK0ZKNnpHVEVBdFVsN3AvbFRxZFhXcjFQYlpwCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0t" | base64 -d > /var/.minikube/client.key
+  script:
+    - VERSION=$(xmllint --xpath '/*[local-name()="project"]/*[local-name()="version"]/text()' pom.xml)
+    - if [[ "$CI_COMMIT_REF_NAME" == "feature/"* ]]; then VERSION="${VERSION}-${CI_COMMIT_SHA:0:12}"; fi
+    - kubectl config use-context minikube
+    - kubectl set image deployment/integration-service-n-pichuzhkin integration-service-n-pichuzhkin=192.168.1.157:8091/integration-service-n-pichuzhkin:$VERSION --namespace=default
     - sleep 10
-    - echo "No lint issues found."
-
-deploy-job:      # This job runs in the deploy stage.
-  environment: production 
-  stage: deploy  # It only runs when *both* jobs in the test stage complete successfully.
-  script:
-    - echo "Deploying application..."
-    - echo "Application successfully deployed."
+    - kubectl delete pod -l app=integration-service-n-pichuzhkin --namespace default || true
+  when: manual
