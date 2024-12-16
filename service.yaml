@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: integration-service-n_pichuzhkin
+  name: integration-service-n-pichuzhkin
 spec:
   selector:
-    app: integration-service-n_pichuzhkin
+    app: integration-service-n-pichuzhkin
   ports:
     - protocol: TCP
       port: 8055
