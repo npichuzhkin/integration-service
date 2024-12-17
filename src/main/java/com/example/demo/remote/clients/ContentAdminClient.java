@@ -1,6 +1,6 @@
-package com.example.demo.remoteClients;
+package com.example.demo.remote.clients;
 
-import com.example.demo.dto.DictionaryDTO;
+import com.example.demo.dto.DictionaryRequestDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,5 +10,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface ContentAdminClient {
 
     @GetMapping({"/dictionary/{name}"})
-    ResponseEntity<DictionaryDTO> getDictionaryByName(@PathVariable String name);
+    ResponseEntity<DictionaryRequestDTO> getDictionaryByName(@PathVariable String name);
 }

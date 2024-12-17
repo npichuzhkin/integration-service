@@ -1,7 +1,8 @@
 package com.example.demo.controllers;
 
-import com.example.demo.dto.OverduePaymentDTO;
-import com.example.demo.services.OverduePaymentsService;
+import com.example.demo.dto.OverduePaymentResponseDTO;
+import com.example.demo.exceptions.OverduePaymentException;
+import com.example.demo.services.OverduePaymentsServiceImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,15 +15,15 @@ import java.util.List;
 @RequestMapping("api/v1")
 public class OverduePaymentsController {
 
-    private final OverduePaymentsService overduePaymentsService;
+    private final OverduePaymentsServiceImpl overduePaymentsServiceImpl;
 
-    public OverduePaymentsController(OverduePaymentsService overduePaymentsService) {
-        this.overduePaymentsService = overduePaymentsService;
+    public OverduePaymentsController(OverduePaymentsServiceImpl overduePaymentsServiceImpl) {
+        this.overduePaymentsServiceImpl = overduePaymentsServiceImpl;
     }
 
     @GetMapping("/overduePayments")
-    public ResponseEntity<List<OverduePaymentDTO>> showOverduePayments(){
-        List<OverduePaymentDTO> overduePayments = overduePaymentsService.getOverduePayments();
+    public ResponseEntity<List<OverduePaymentResponseDTO>> showOverduePayments() throws OverduePaymentException {
+        List<OverduePaymentResponseDTO> overduePayments = overduePaymentsServiceImpl.getOverduePayments();
         return new ResponseEntity<>(overduePayments, HttpStatus.OK);
     }
 

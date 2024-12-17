@@ -1,6 +1,6 @@
 package com.example.demo;
 
-import com.example.demo.remoteClients.ContentAdminClient;
+import com.example.demo.remote.clients.ContentAdminClient;
 import javacode.prac.api.client.feign.adapter.customer.CustomerServiceClient;
 import javacode.prac.api.client.feign.adapter.onec.OneCAdapterClient;
 import org.springframework.boot.*;

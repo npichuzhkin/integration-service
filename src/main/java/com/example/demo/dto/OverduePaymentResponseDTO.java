@@ -11,7 +11,7 @@ import java.util.Objects;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OverduePaymentDTO {
+public class OverduePaymentResponseDTO {
     private CustomerDto user;
     private OrderEntityDto order;
 
@@ -19,7 +19,7 @@ public class OverduePaymentDTO {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        OverduePaymentDTO that = (OverduePaymentDTO) o;
+        OverduePaymentResponseDTO that = (OverduePaymentResponseDTO) o;
         return Objects.equals(user, that.user) && Objects.equals(order, that.order);
     }
 

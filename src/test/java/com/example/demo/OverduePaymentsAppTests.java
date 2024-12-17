@@ -1,8 +1,9 @@
 package com.example.demo;
 
 import com.example.demo.controllers.OverduePaymentsController;
-import com.example.demo.dto.OverduePaymentDTO;
-import com.example.demo.services.OverduePaymentsService;
+import com.example.demo.dto.OverduePaymentResponseDTO;
+import com.example.demo.exceptions.OverduePaymentException;
+import com.example.demo.services.OverduePaymentsServiceImpl;
 import javacode.prac.api.client.feign.adapter.customer.dto.CustomerDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ import static org.mockito.Mockito.*;
 class OverduePaymentsControllerTest {
 
 	@Mock
-	private OverduePaymentsService overduePaymentsService;
+	private OverduePaymentsServiceImpl overduePaymentsServiceImpl;
 
 	@InjectMocks
 	private OverduePaymentsController overduePaymentsController;
@@ -34,7 +35,7 @@ class OverduePaymentsControllerTest {
 	}
 
 	@Test
-	void shouldReturnListOfOverduePayments() {
+	void shouldReturnListOfOverduePayments() throws OverduePaymentException {
 		CustomerDto customer1 = new CustomerDto();
 		customer1.setUserName("John Doe");
 		customer1.setInn("1234567890");
@@ -51,31 +52,31 @@ class OverduePaymentsControllerTest {
 		order2.setOrderId("ORD-002");
 		order2.setCustomerName("Jane Smith");
 
-		List<OverduePaymentDTO> mockPayments = Arrays.asList(
-				new OverduePaymentDTO(customer1, order1),
-				new OverduePaymentDTO(customer2, order2)
+		List<OverduePaymentResponseDTO> mockPayments = Arrays.asList(
+				new OverduePaymentResponseDTO(customer1, order1),
+				new OverduePaymentResponseDTO(customer2, order2)
 		);
 
-		when(overduePaymentsService.getOverduePayments()).thenReturn(mockPayments);
+		when(overduePaymentsServiceImpl.getOverduePayments()).thenReturn(mockPayments);
 
-		ResponseEntity<List<OverduePaymentDTO>> response = overduePaymentsController.showOverduePayments();
+		ResponseEntity<List<OverduePaymentResponseDTO>> response = overduePaymentsController.showOverduePayments();
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(mockPayments.size(), response.getBody().size());
 		assertEquals(mockPayments, response.getBody());
 
-		verify(overduePaymentsService, times(1)).getOverduePayments();
+		verify(overduePaymentsServiceImpl, times(1)).getOverduePayments();
 	}
 
 	@Test
-	void shouldReturnEmptyListWhenNoOverduePayments() {
-		when(overduePaymentsService.getOverduePayments()).thenReturn(Collections.emptyList());
+	void shouldReturnEmptyListWhenNoOverduePayments() throws OverduePaymentException {
+		when(overduePaymentsServiceImpl.getOverduePayments()).thenReturn(Collections.emptyList());
 
-		ResponseEntity<List<OverduePaymentDTO>> response = overduePaymentsController.showOverduePayments();
+		ResponseEntity<List<OverduePaymentResponseDTO>> response = overduePaymentsController.showOverduePayments();
 
 		assertEquals(HttpStatus.OK, response.getStatusCode());
 		assertEquals(0, response.getBody().size());
 
-		verify(overduePaymentsService, times(1)).getOverduePayments();
+		verify(overduePaymentsServiceImpl, times(1)).getOverduePayments();
 	}
 }
